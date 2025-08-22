@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Pause, Play, SkipForward, Square } from 'lucide-react';
 import { projects } from '../data/projects.js';
 import { faceCameraRotationDeg } from '@/utils/faceCamera';
+import useScrollVar from '@/hooks/useScrollVar';
 import '@/styles/helix.css';
 
 // Effect components
@@ -56,6 +57,25 @@ const HelixNode = ({ project, index, totalProjects, isActive, onClick, effects, 
     else depthClass = 'depth-medium';
   }
   
+  // NEW: set --theta for CSS calc
+  const tileVars = { 
+    '--theta': `${angle}deg`,
+    left: '50%',
+    top: '50%',
+    transform: `
+      translate(-50%, -50%)
+      rotateY(${angle}deg) 
+      translateZ(${radius}px) 
+      translateY(${yOffset}px)
+      scale(${scale})
+    `,
+    transformStyle: 'preserve-3d',
+    backfaceVisibility: 'visible',
+    WebkitBackfaceVisibility: 'visible',
+    opacity: opacity,
+    transition: effects.smoothRotation ? 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.3s ease'
+  };
+
   return (
     <div
       className={`
@@ -63,30 +83,10 @@ const HelixNode = ({ project, index, totalProjects, isActive, onClick, effects, 
         ${isActive ? 'active z-20' : 'z-10'}
         ${depthClass}
       `}
-      style={{
-        left: '50%',
-        top: '50%',
-        transform: `
-          translate(-50%, -50%)
-          rotateY(${angle}deg) 
-          translateZ(${radius}px) 
-          translateY(${yOffset}px)
-          scale(${scale})
-        `,
-        transformStyle: 'preserve-3d',
-        backfaceVisibility: 'visible',
-        WebkitBackfaceVisibility: 'visible',
-        opacity: opacity,
-        transition: effects.smoothRotation ? 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.3s ease'
-      }}
+      style={tileVars}
       onClick={() => onClick(index)}
     >
-      <div 
-        className="tile-card"
-        style={{
-          transform: `rotateY(${faceCameraRotationDeg(angle, scrollOffset * (360 / totalProjects))}deg)`
-        }}
-      >
+      <div className="tile-card">
         <div className="w-full h-full bg-gray-700 border border-gray-500 hover:border-gray-400 transition-colors flex items-center justify-center tile-media" style={{ borderRadius: '12px' }}>
           <div className="text-center">
             <div className="text-white text-xs font-medium">
@@ -173,6 +173,9 @@ export const EnhancedHelixProjectsShowcase = ({
   const [isPaused, setIsPaused] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [scrollOffset, setScrollOffset] = useState(0); // For endless scroll
+  
+  // Hook to drive animation via scroll
+  useScrollVar('--t', 'helixIntro');
 
   // Check for reduced motion preference
   useEffect(() => {
@@ -193,22 +196,22 @@ export const EnhancedHelixProjectsShowcase = ({
     }
   }, [prefersReducedMotion]);
 
-  // Mouse wheel / trackpad scroll support
-  useEffect(() => {
-    if (!enhanced) return;
+  // Mouse wheel / trackpad scroll support - REMOVED (now using sticky scroll)
+  // useEffect(() => {
+  //   if (!enhanced) return;
 
-    const handleWheel = (e) => {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 1 : -1;
-      setScrollOffset(prev => prev + delta * 0.2); // Slower scroll increment
-    };
+  //   const handleWheel = (e) => {
+  //     e.preventDefault();
+  //     const delta = e.deltaY > 0 ? 1 : -1;
+  //     setScrollOffset(prev => prev + delta * 0.2); // Slower scroll increment
+  //   };
 
-    const helixElement = helixRef.current?.parentElement;
-    if (helixElement) {
-      helixElement.addEventListener('wheel', handleWheel, { passive: false });
-      return () => helixElement.removeEventListener('wheel', handleWheel);
-    }
-  }, [enhanced]);
+  //   const helixElement = helixRef.current?.parentElement;
+  //   if (helixElement) {
+  //     helixElement.addEventListener('wheel', handleWheel, { passive: false });
+  //     return () => helixElement.removeEventListener('wheel', handleWheel);
+  //   }
+  // }, [enhanced]);
 
   // Auto-rotation logic - DISABLED by default
   useEffect(() => {
@@ -295,39 +298,42 @@ export const EnhancedHelixProjectsShowcase = ({
               onProjectSelect={handleProjectClick}
             >
               <TypographyEffects effects={effects}>
-                <section className="projects-showcase relative" data-enhanced={enhanced}>
-                  {/* Skip link for accessibility */}
-                  <a 
-                    href="#projects-list" 
-                    className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded"
-                  >
-                    Skip 3D animation and view projects list
-                  </a>
+                <section id="helixIntro" className="helix-section">
+                  <div className="helix-sticky">
+                    {/* Skip link for accessibility */}
+                    <a 
+                      href="#projects-list" 
+                      className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded"
+                    >
+                      Skip 3D animation and view projects list
+                    </a>
 
-                  {/* Motion controls */}
-                  <MotionControls 
-                    isPaused={isPaused}
-                    onPause={handlePause}
-                    onResume={handleResume}
-                    onEmergencyStop={handleEmergencyStop}
-                    onSkipIntro={handleSkipIntro}
-                    effects={effects}
-                  />
+                    {/* Motion controls */}
+                    <MotionControls 
+                      isPaused={isPaused}
+                      onPause={handlePause}
+                      onResume={handleResume}
+                      onEmergencyStop={handleEmergencyStop}
+                      onSkipIntro={handleSkipIntro}
+                      effects={effects}
+                    />
 
-                  {/* 3D Helix Scene */}
-                  <div className="helix-scene relative h-screen overflow-hidden flex items-center justify-center">
+                    {/* 3D Helix Scene */}
                     <div 
-                      className="helix-assembly"
-                      ref={helixRef}
+                      className="helix-scene"
                       style={{
-                        transformStyle: 'preserve-3d',
-                        perspective: '1200px',
-                        // Combine rotation and vertical translation for scroll effect
-                        transform: `
-                          rotateX(-10deg) 
-                          rotateY(${scrollOffset * (360 / projects.length)}deg)
-                          translateY(${-scrollOffset * 20}px)
-                        `,
+                        '--sceneDeg': 'calc(var(--t) * -720deg)',     // two full turns
+                        '--lift': 'calc(var(--t) * -800px)',          // one pitch
+                      }}
+                    >
+                      <div 
+                        className="helix-assembly"
+                        ref={helixRef}
+                        style={{
+                          transformStyle: 'preserve-3d',
+                          transform: `
+                            rotateX(-10deg)
+                          `,
                         transition: effects.smoothRotation 
                           ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' 
                           : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -354,6 +360,8 @@ export const EnhancedHelixProjectsShowcase = ({
                           );
                         })
                       )}
+                      </div>
+
                     </div>
 
                     {/* Navigation instructions */}
@@ -362,19 +370,19 @@ export const EnhancedHelixProjectsShowcase = ({
                         <h3 className="font-semibold mb-2">Navigation</h3>
                         <ul className="space-y-1 text-xs">
                           <li>← → Arrow keys to navigate</li>
-                          <li>Mouse wheel / trackpad to scroll</li>
+                          <li>Scroll page to rotate helix</li>
                           <li>Click projects to select</li>
                           <li>Esc to exit 3D view</li>
                           <li>Infinite scroll - cards repeat endlessly</li>
                         </ul>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Accessible fallback (hidden but present for screen readers) */}
-                  <div id="projects-list" className="sr-only">
-                    <h2>Projects List</h2>
-                    <ProjectsGrid projects={projects} />
+                    {/* Accessible fallback (hidden but present for screen readers) */}
+                    <div id="projects-list" className="sr-only">
+                      <h2>Projects List</h2>
+                      <ProjectsGrid projects={projects} />
+                    </div>
                   </div>
                 </section>
               </TypographyEffects>
