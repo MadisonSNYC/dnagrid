@@ -386,3 +386,4 @@ export const EnhancedHelixProjectsShowcase = ({
   );
 };
 
+export default EnhancedHelixProjectsShowcase;
