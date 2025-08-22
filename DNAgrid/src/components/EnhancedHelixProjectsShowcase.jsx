@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Pause, Play, SkipForward, Square } from 'lucide-react';
 import { projects } from '../data/projects.js';
+import { faceCameraRotationDeg } from '@/utils/faceCamera';
 import '@/styles/helix.css';
 
 // Effect components
@@ -81,23 +82,16 @@ const HelixNode = ({ project, index, totalProjects, isActive, onClick, effects, 
       onClick={() => onClick(index)}
     >
       <div 
-        className="w-full h-full bg-gray-700 border border-gray-500 hover:border-gray-400 transition-colors flex items-center justify-center tile-media"
+        className="tile-card"
         style={{
-          // Always face the viewer - counter-rotate by the card's angle
-          transform: `rotateY(${-angle}deg)`,
-          transformStyle: 'preserve-3d',
-          backfaceVisibility: 'visible',
-          WebkitBackfaceVisibility: 'visible',
-          transition: 'all 0.3s ease',
-          // Consistent curved appearance like depth blur
-          borderRadius: '12px',
-          // Force visibility
-          visibility: 'visible'
+          transform: `rotateY(${faceCameraRotationDeg(angle, scrollOffset * (360 / totalProjects))}deg)`
         }}
       >
-        <div className="text-center">
-          <div className="text-white text-xs font-medium">
-            Project {String((effectiveIndex + 1)).padStart(2, '0')}
+        <div className="w-full h-full bg-gray-700 border border-gray-500 hover:border-gray-400 transition-colors flex items-center justify-center tile-media" style={{ borderRadius: '12px' }}>
+          <div className="text-center">
+            <div className="text-white text-xs font-medium">
+              Project {String((effectiveIndex + 1)).padStart(2, '0')}
+            </div>
           </div>
         </div>
       </div>

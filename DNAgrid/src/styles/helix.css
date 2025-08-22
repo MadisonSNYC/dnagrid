@@ -26,3 +26,12 @@
 .helix-tile {
   background: #111; /* or a dominant color; safe on dark theme */
 }
+
+/* Tile card for counter-rotation to face camera */
+.tile-card {
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
