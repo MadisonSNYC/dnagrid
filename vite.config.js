@@ -6,6 +6,11 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(),tailwindcss()],
+  css: { devSourcemap: false },
+  build: {
+    sourcemap: false
+  },
+  esbuild: { sourcemap: false },
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(__dirname, 'src') }
@@ -13,7 +18,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port: 8000,
     allowedHosts: [
       'localhost',
       '127.0.0.1',

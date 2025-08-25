@@ -1,6 +1,9 @@
 /* Step S2 - Kill CLS (reserve card height) */
 :root { 
   --tile-w: 80px;  /* matches current card width */
+  /* fallback so computed style is never 'none' even before JS runs */
+  --track-tilt-deg: -6deg;
+  --sceneTurns: -720deg;
 }
 
 .helix-tile {
@@ -553,3 +556,36 @@
   height: 100svh; 
   overflow: visible; 
 }
+
+/* ===== Helix isolated layout: one perspective owner ===== */
+.helix-stage {
+  position: relative;
+  height: 320svh;                 /* ~3.2 screens scroll budget */
+}
+.helix-pin {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  perspective: 1200px;            /* d */
+  perspective-origin: center center;
+  contain: layout paint size style;
+  overflow: visible;
+}
+.helix-camera {
+  width: 100%;
+  height: 100%;
+  transform: rotateX(var(--track-tilt-deg, -10deg));
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.helix-world {
+  width: 100%;
+  height: 100%;
+  /* derive yaw from scroll: --sceneDeg = --t * (turns*360) */
+  --sceneDeg: calc(var(--t, 0) * var(--sceneTurns));
+  transform: rotateY(var(--sceneDeg));
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+/* ensure no other wrapper owns perspective or global Y move */
+.helix-assembly { perspective: none !important; }

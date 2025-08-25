@@ -18,7 +18,7 @@ export const VisualEffects = ({ effects, children }) => {
     <div 
       className={`visual-effects-wrapper lab-compat
                   ${effects.depthBlur ? 'fx-depth-blur' : ''} 
-                  ${effects.outwardTurn ? 'fx-outward' : ''} 
+                  ${effects.outwardTurn === true ? 'fx-outward' : ''} 
                   ${effects.centerLogo ? 'fx-center-logo' : ''} 
                   ${effects.rgbEdge ? 'fx-rgb-edge' : ''}
                   ${effects.depthOfField ? 'fx-lab-dof' : ''}

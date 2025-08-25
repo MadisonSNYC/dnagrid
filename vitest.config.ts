@@ -1,15 +1,24 @@
-import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { defineConfig } from 'vitest/config'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 export default defineConfig({
   test: {
+    globals: true,
     environment: 'jsdom',
-    include: ['src/__tests__/**/*.test.ts?(x)'],
-    setupFiles: ['src/__tests__/setup.ts']
+    setupFiles: ['./src/test/setupTests.ts'],
+    css: true,
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: './coverage',
+    },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  }
-});
+      '@': resolve(__dirname, './src'),
+    },
+  },
+})

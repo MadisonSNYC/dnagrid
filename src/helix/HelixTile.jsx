@@ -29,10 +29,12 @@ export default function HelixTile({
           visibility: 'visible'
         }}
       >
-        <div className="tile-content flex items-center justify-center relative">
-          {media}
-          {ghost /* rarely needed if pseudo is on .helix-tile */}
-          {overlay && <div className="ui-layer">{overlay}</div>}
+        <div className="depth-compensator">
+          <div className="tile-content flex items-center justify-center relative">
+            {media}
+            {ghost /* rarely needed if pseudo is on .helix-tile */}
+            {overlay && <div className="ui-layer">{overlay}</div>}
+          </div>
         </div>
       </div>
     </div>

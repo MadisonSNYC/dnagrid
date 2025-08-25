@@ -45,7 +45,7 @@ const defaultEffects = {
   minimalistControls: false,
   
   // Constant Tile Size
-  constantTileSize: true,    // ON by default for double-helix test
+  constantTileSize: true,    // ON by default: anti-breathing
   compStrength: 0.85,        // 0..1 (1 = full compensation)
   
   // Typography
@@ -57,7 +57,7 @@ const defaultEffects = {
   placementStrength: 6,      // 0..10; maps to CSS vars (stronger default)
   
   // S6: Outward Turn + Ghost Back
-  outwardTurn: true,         // default ON for dynamic scroll effects
+  outwardTurn: false,        // default OFF (no surprises)
   
   // FS1: Wheel Scroll Direction
   invertScroll: false,       // default: normal scroll direction

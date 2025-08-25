@@ -5,6 +5,7 @@ import { Settings, Palette, Sparkles, Box, RotateCw, Navigation, Type, Mouse } f
 
 export const DevPanel = ({ effects, onEffectToggle, onReset, setPlacementStrength, setRepeatTurns }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const showLayoutTuning = false; // Feature flag for layout controls
 
   const effectGroups = [
     {
@@ -57,6 +58,7 @@ export const DevPanel = ({ effects, onEffectToggle, onReset, setPlacementStrengt
       effects: [
         { key: 'centralWireframe', label: 'Wireframe', description: 'Center structure' },
         { key: 'centerLogo', label: 'Center Logo', description: 'Ravie logo in center' },
+        { key: 'constantTileSize', label: 'Constant Size (anti-breathing)', description: 'Maintain tile size' },
         { key: 'smoothRotation', label: 'Smooth', description: 'Better easing' },
         { key: 'depthHierarchy', label: 'Depth', description: 'Scale by distance' }
       ],
@@ -378,6 +380,7 @@ export const DevPanel = ({ effects, onEffectToggle, onReset, setPlacementStrengt
                   </div>
 
                   {/* Spacing Controls */}
+                  {showLayoutTuning && (
                   <div className="mt-3 px-1 border-t border-gray-200 pt-3">
                     <div className="mb-2">
                       <div className="flex items-center gap-2">
@@ -459,8 +462,10 @@ export const DevPanel = ({ effects, onEffectToggle, onReset, setPlacementStrengt
                       )}
                     </div>
                   </div>
+                  )}
 
                   {/* Readability Mode Controls */}
+                  {showLayoutTuning && (
                   <div className="mt-3 px-1 border-t border-gray-200 pt-3">
                     <div className="mb-2">
                       <div className="flex items-center gap-2">
@@ -510,6 +515,7 @@ export const DevPanel = ({ effects, onEffectToggle, onReset, setPlacementStrengt
                       </div>
                     )}
                   </div>
+                  )}
                 </>
               )}
             </div>

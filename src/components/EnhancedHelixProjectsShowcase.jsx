@@ -13,289 +13,142 @@ import { StructureEffects } from './effects/StructureEffects.jsx';
 import { NavigationEffects } from './effects/NavigationEffects.jsx';
 import { TypographyEffects } from './effects/TypographyEffects.jsx';
 
-const HelixNode = ({ project, index, totalProjects, isActive, onClick, effects, scrollOffset = 0 }) => {
-  // Calculate position along the extended helix
-  const repeatTurns = effects.repeatTurns || 2;
-  const totalCards = totalProjects * Math.ceil(repeatTurns + 1);
-  
-  // Use modulo for display purposes
-  const effectiveIndex = index % totalProjects;
-  
-  // Position calculation for extended helix
-  const normalizedIndex = index / totalProjects;
-  const angle = normalizedIndex * 360;
-  const radius = 250; // Good radius for helix
-  
-  // DNA Helix arrangement - extend vertical span based on repeat turns
-  const verticalSpan = 800 * repeatTurns; // Much taller helix
-  const yOffset = (index / (totalCards - 1)) * verticalSpan - (verticalSpan / 2);
-  
-  // Calculate the current rotation to always face forward
-  const currentRotation = scrollOffset * (360 / totalProjects);
-  const cardFaceAngle = angle - currentRotation;
-  
-  // Calculate depth-based opacity like Ashfall Studio
-  const normalizedAngle = ((angle - currentRotation) % 360 + 360) % 360;
-  let opacity = 1;
-  let scale = 1;
-  
-  // Front cards (facing viewer) - full opacity
-  if (normalizedAngle < 45 || normalizedAngle > 315) {
-    opacity = 1;
-    scale = 1;
-  }
-  // Side cards - medium opacity
-  else if ((normalizedAngle >= 45 && normalizedAngle < 135) || (normalizedAngle >= 225 && normalizedAngle < 315)) {
-    opacity = 0.7;
-    scale = 0.9;
-  }
-  // Back cards - low opacity for depth
-  else {
-    opacity = 0.3;
-    scale = 0.8;
-  }
-  
-  // Calculate depth for hierarchy effects
-  let depthClass = '';
-  if (effects.depthHierarchy) {
-    if (normalizedAngle > 315 || normalizedAngle < 45) depthClass = 'depth-near';
-    else if (normalizedAngle > 135 && normalizedAngle < 225) depthClass = 'depth-far';
-    else depthClass = 'depth-medium';
-  }
-  
-  // --- LAB VARIABLES CALCULATION (EP2) ---
-  // Helper to clamp values 0-1
-  const clamp01 = (v) => Math.max(0, Math.min(1, v));
-  
-  // Normalize angle to signed degrees (-180 to 180)
-  const normalizeSignedDeg = (deg) => {
-    deg = deg % 360;
-    if (deg > 180) deg -= 360;
-    if (deg < -180) deg += 360;
-    return deg;
-  };
-  
-  // depth 0..1 (0 front, 1 back)
-  const thetaDeg = normalizeSignedDeg(angle);
-  const sceneYaw = normalizeSignedDeg(currentRotation);
-  const depth = clamp01(Math.abs(normalizeSignedDeg(thetaDeg + sceneYaw)) / 180);
-  
-  // Lab front floors (desktop/mobile)
-  const FRONT_FLOOR = window.innerWidth <= 768 ? 0.48 : 0.42;
-  const DOF_SLOPE = window.innerWidth <= 768 ? 0.35 : 0.45;
-  
-  // clamped front opacity
-  const frontO = Math.max(FRONT_FLOOR, 1 - depth * DOF_SLOPE);
-  
-  // --- LAB GHOST BACK CALCULATION (55-75° window) ---
-  // signed angle relative to camera, degrees
-  const signedDelta = normalizeSignedDeg(thetaDeg + sceneYaw);
-  const absDelta = Math.abs(signedDelta);
-  
-  // === Lab fade window ===
-  const FADE_START = 55;
-  const FADE_END = 75;
-  
-  // Desktop/mobile ghost ceilings
-  const isMobile = window.matchMedia('(max-width: 640px)').matches;
-  const GHOST_MAX = isMobile ? 0.22 : 0.28;
-  
-  // Compute --back and --ghost-o exactly like Lab
-  let backFade = 0;
-  let ghostO = 0;
-  
-  if (absDelta < FADE_START) {
-    backFade = 0;
-    ghostO = 0;
-  } else if (absDelta >= FADE_END) {
-    backFade = 1;
-    ghostO = GHOST_MAX;
-  } else {
-    backFade = (absDelta - FADE_START) / (FADE_END - FADE_START);
-    // delayed ghost start (Lab GHOST_GATE = 0.40)
-    const GHOST_GATE = 0.40;
-    const ghostPhase = backFade <= GHOST_GATE ? 0 : (backFade - GHOST_GATE) / (1 - GHOST_GATE);
-    ghostO = Math.min(GHOST_MAX, ghostPhase * GHOST_MAX);
-  }
-  
-  // bias (size & inward tilt)
-  const SCALE_FRONT = 0.03;
-  const SCALE_SIDE = 0.08;
-  const BIAS_TILT_MAX = 5; // deg inward
-  
-  const biasScale = 1 + SCALE_FRONT * (1 - depth) - SCALE_SIDE * depth;
-  const biasTilt = -BIAS_TILT_MAX * depth;
-  
-  // Determine if this is a video (no image available for ghost)
-  const isVideo = !project?.thumbnail;
-  
-  // Prepare tile CSS variables
-  const tileVars = {
-    '--d': depth.toFixed(3),
-    '--front-o': frontO.toFixed(3),
-    '--ghost-o': ghostO.toFixed(3),
-    '--back': backFade.toFixed(3),
-    '--bias-scale': biasScale.toFixed(3),
-    '--bias-tilt-deg': `${biasTilt.toFixed(2)}deg`,
-    // For image ghost - using project thumbnail if available
-    ...(project?.thumbnail ? { '--tile-bg': `url(${project.thumbnail})` } : {})
-  };
-  
-  return (
-    <div
-      className={`
-        helix-node helix-tile absolute cursor-pointer
-        ${isActive ? 'active z-20' : 'z-10'}
-        ${depthClass}
-        ${isVideo ? 'ghost-fallback' : ''}
-      `}
-      style={{
-        width: '80px',  // 9:16 aspect ratio
-        height: '142px', // 80 * 16/9 ≈ 142
-        left: '50%',
-        top: '50%',
-        transform: `
-          translate(-50%, -50%)
-          rotateY(${angle}deg) 
-          translateZ(${radius}px) 
-          translateY(${yOffset}px)
-          scale(${scale})
-        `,
-        transformStyle: 'preserve-3d',
-        backfaceVisibility: 'visible',
-        WebkitBackfaceVisibility: 'visible',
-        opacity: opacity,
-        transition: effects.smoothRotation ? 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.3s ease',
-        // Apply Lab CSS variables
-        ...tileVars
-      }}
-      onClick={() => onClick(index)}
-      data-ghost={effects.ghostBack ? 'on' : 'off'}
-    >
-      <div 
-        className="tile-card w-full h-full bg-gray-700 border border-gray-500 hover:border-gray-400 transition-colors"
-        style={{
-          // Always face the viewer - counter-rotate by the card's angle
-          transform: `rotateY(${-angle}deg)`,
-          transformStyle: 'preserve-3d',
-          backfaceVisibility: 'visible',
-          WebkitBackfaceVisibility: 'visible',
-          transition: 'all 0.3s ease',
-          // Consistent curved appearance like depth blur
-          borderRadius: '12px',
-          // Force visibility
-          visibility: 'visible'
-        }}
-      >
-        {/* Media layer that receives blur */}
-        {project?.thumbnail && (
-          <div 
-            className="media-3d absolute inset-0 rounded-xl overflow-hidden"
-            style={{
-              backgroundImage: `url(${project.thumbnail})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-          />
-        )}
-        
-        {/* Content layer stays crisp */}
-        <div className="tile-content flex items-center justify-center relative">
-          <div className="text-center">
-            <div className="text-white text-xs font-medium">
-              Project {String((effectiveIndex + 1)).padStart(2, '0')}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+// dev-only watchdog
+let __installWatchdog = null;
+if (import.meta && import.meta.env && import.meta.env.DEV) {
+  try {
+    // Dynamic import for dev-only watchdog
+    import('@/debug/helixWatchdog.ts').then(module => {
+      __installWatchdog = module.installHelixWatchdog;
+    });
+  } catch {}
+}
+
+// dev-only patches
+let __installSetPropertyPatch = null;
+if (import.meta?.env?.DEV) {
+  try {
+    import('@/debug/patchSetProperty.ts').then(module => {
+      __installSetPropertyPatch = module.installSetPropertyPatch;
+    });
+  } catch {}
+}
+
+// HelixNode component removed - using HelixPairGroup directly now
+// This component was replaced with HelixPairGroup for better double-helix structure
 
 const ProjectsGrid = ({ projects, className = '' }) => (
   <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8 ${className}`}>
     {projects.map(project => (
-      <article key={project.id} className="bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
-        <img 
-          src={project.thumbnail} 
-          alt={project.title}
-          className="w-full h-48 object-cover"
-        />
-        <div className="p-4">
-          <h3 className="text-white text-lg font-semibold mb-2">
-            {project.title}
-          </h3>
-          <p className="text-gray-300 text-sm mb-3">
-            {project.description}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {project.technologies.map(tech => (
-              <span key={tech} className="tech-tag text-xs bg-blue-600 text-white px-2 py-1 rounded">
-                {tech}
-              </span>
-            ))}
-          </div>
-        </div>
-      </article>
+      <div key={project.id} className="bg-gray-800 rounded-lg p-4">
+        <h3 className="text-white text-lg font-semibold mb-2">{project.title}</h3>
+        <p className="text-gray-400">{project.description}</p>
+      </div>
     ))}
   </div>
 );
 
-const MotionControls = ({ isPaused, onPause, onResume, onEmergencyStop, onSkipIntro, effects }) => {
-  if (effects.minimalistControls) return null;
-  
+const MotionControls = ({ isPaused, onPause, onResume, onEmergencyStop, onSkipIntro, onDevReadout, effects }) => {
   return (
-    <div className="motion-controls fixed top-4 right-4 z-50 flex gap-2">
+    <div 
+      className="motion-controls fixed top-4 right-4 z-50 flex gap-2"
+      role="group"
+      aria-label="Motion controls"
+    >
+      {!isPaused ? (
+        <Button
+          onClick={onPause}
+          size="sm"
+          variant="outline"
+          aria-label="Pause motion"
+        >
+          <Pause className="h-4 w-4" />
+        </Button>
+      ) : (
+        <Button
+          onClick={onResume}
+          size="sm"
+          variant="outline"
+          aria-label="Resume motion"
+        >
+          <Play className="h-4 w-4" />
+        </Button>
+      )}
+      
       <Button
-        variant="outline"
-        size="sm"
-        onClick={onSkipIntro}
-        className="bg-gray-900/80 border-gray-700 text-white hover:bg-gray-800"
-      >
-        <SkipForward className="w-4 h-4 mr-1" />
-        Skip Intro
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={isPaused ? onResume : onPause}
-        className="bg-gray-900/80 border-gray-700 text-white hover:bg-gray-800"
-      >
-        {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
         onClick={onEmergencyStop}
-        className="bg-red-900/80 border-red-700 text-white hover:bg-red-800"
+        size="sm"
+        variant="destructive"
+        aria-label="Emergency stop - disable all motion"
       >
-        <Square className="w-4 h-4" />
+        <Square className="h-4 w-4" />
+      </Button>
+      
+      <Button
+        onClick={onSkipIntro}
+        size="sm"
+        variant="ghost"
+        aria-label="Skip intro animation"
+      >
+        <SkipForward className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onDevReadout}
+        aria-label="Dev Readout"
+        title="Log widths & zCam for front/side/back"
+      >
+        DEV
       </Button>
     </div>
   );
 };
 
-export const EnhancedHelixProjectsShowcase = ({ 
-  autoRotate = true,
-  scrollDriven = false,
-  effects = {}
-}) => {
-  const helixRef = useRef(null);
-  const [currentProject, setCurrentProject] = useState(0);
-  const [enhanced, setEnhanced] = useState(true); // Force 3D mode for testing
+export const EnhancedHelixProjectsShowcase = ({ effects = {} }) => {
+  // ==== SAFE MODE (crash-proof profile) ====
+  const SAFE_MODE = true;                        // default ON
+  const SAFE = {
+    MAX_PAIRS:        10,                        // ~20 tiles total (double-helix)
+    BATCH_SIZE:       4,                         // tiny batch size to avoid main-thread spikes
+    SCENE_TURNS_DEG:  -180,                      // minimal rotation budget while testing
+    TRACK_TILT_DEG:   -4,                        // gentle tilt to reduce perspective work
+    BASE_TILES_TURN:  10,                        // paired with MAX_PAIRS to keep density low
+    VISIBLE_TURNS:    1.0,
+    BUFFER_TURNS:     0.2,
+    REPEAT_TURNS:     1.0,
+    CONSTANT_SIZE_ON: true,                      // anti-breathing
+    OUTWARD_OFF:      true,                      // outward disabled
+    DEV_PANEL_MINIMAL:true                       // hide risky layout knobs
+  };
+  
+  const [enhanced, setEnhanced] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [autoRotate, setAutoRotate] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [scrollOffset, setScrollOffset] = useState(0); // For endless scroll
+  const [currentProject, setCurrentProject] = useState(0);
+  const [pairCount, setPairCount] = useState(0);  // For batched rendering
+  const helixRef = useRef(null);
+  
+  // Check for motion preference
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Check for reduced motion preference
+  // Install dev watchdog
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-    
-    const handleChange = (e) => setPrefersReducedMotion(e.matches);
-    mediaQuery.addEventListener('change', handleChange);
-    
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (__installWatchdog) {
+      const uninstall = __installWatchdog();
+      return () => { uninstall && uninstall(); };
+    }
+    return;
+  }, []);
+
+  // Install dev setProperty patch
+  useEffect(() => {
+    if (__installSetPropertyPatch) {
+      const uninstall = __installSetPropertyPatch({ sampleEvery: 20 });
+      return () => { uninstall && uninstall(); };
+    }
+    return;
   }, []);
 
   // Feature detection and enhancement
@@ -308,7 +161,8 @@ export const EnhancedHelixProjectsShowcase = ({
 
   // Mouse wheel / trackpad scroll support
   useEffect(() => {
-    if (!enhanced) return;
+    const wheelMode = false; // OFF by default so the page scroll works
+    if (!enhanced || !wheelMode) return;
 
     const handleWheel = (e) => {
       e.preventDefault();
@@ -316,11 +170,9 @@ export const EnhancedHelixProjectsShowcase = ({
       setScrollOffset(prev => prev + delta * 0.2); // Slower scroll increment
     };
 
-    const helixElement = helixRef.current?.parentElement;
-    if (helixElement) {
-      helixElement.addEventListener('wheel', handleWheel, { passive: false });
-      return () => helixElement.removeEventListener('wheel', handleWheel);
-    }
+    const pin = document.querySelector('.helix-pin');
+    pin?.addEventListener('wheel', handleWheel, { passive: false });
+    return () => pin?.removeEventListener('wheel', handleWheel);
   }, [enhanced]);
 
   // Auto-rotation logic - DISABLED by default
@@ -382,12 +234,162 @@ export const EnhancedHelixProjectsShowcase = ({
   };
   const handleSkipIntro = () => setEnhanced(false);
 
+  const handleDevReadout = () => {
+    // perspective & camera tilt
+    const pin = document.querySelector('.helix-pin')
+    const persp = pin ? getComputedStyle(pin).perspective : '(none)'
+    const tilt = getComputedStyle(document.querySelector('.helix-camera'))?.transform || '(no camera transform)'
+
+    // widths at front/side/back
+    const cards = [...document.querySelectorAll('.pair-node.A .tile-card')]
+    let widthReport = 'no cards'
+    if (cards.length) {
+      const w = el => Math.round(el.getBoundingClientRect().width)
+      const n = cards.length, q = Math.max(1, Math.floor(n/4))
+      widthReport = { front: w(cards[0]), side: w(cards[q]), back: w(cards[q*2]), count: n }
+    }
+
+    // camera-space Z var
+    const nodes = [...document.querySelectorAll('.pair-node.A')]
+    let zReport = 'no nodes'
+    if (nodes.length) {
+      const readZ = el => {
+        const z = getComputedStyle(el).getPropertyValue('--zCamPx')?.trim()
+        return z ? Number(z) : null
+      }
+      const n = nodes.length, q = Math.max(1, Math.floor(n/4))
+      zReport = { front: readZ(nodes[0]), side: readZ(nodes[q]), back: readZ(nodes[q*2]), count: n }
+    }
+
+    const world = document.querySelector('.helix-world')
+    const sceneDeg = world ? getComputedStyle(world).getPropertyValue('--sceneDeg') : '(no --sceneDeg)'
+
+    console.group('[Helix Dev Readout]')
+    console.log('perspective:', persp)
+    console.log('camera transform (tilt):', tilt)
+    console.log('sceneDeg:', sceneDeg)
+    console.log('widths (A strand):', JSON.stringify(widthReport))
+    console.log('zCamPx (A strand):', JSON.stringify(zReport))
+    console.groupEnd()
+  }
+
+  // Robust Scroll v3: rAF-throttled, document-based mapping to --t ∈ [0..1]
+  useEffect(() => {
+    const root = document.documentElement
+    const docEl = document.scrollingElement || document.documentElement
+    let frame = 0
+    let lastT = -1
+
+    const computeT = () => {
+      const scrollY = docEl.scrollTop || window.pageYOffset || 0
+      const docHeight = Math.max(
+        document.body.scrollHeight, document.documentElement.scrollHeight,
+        document.body.offsetHeight, document.documentElement.offsetHeight,
+        document.body.clientHeight, document.documentElement.clientHeight
+      )
+      const total = Math.max(docHeight - window.innerHeight, 1)
+      const t = Math.min(Math.max(scrollY / total, 0), 1)
+      return t
+    }
+
+    const writeT = () => {
+      frame = 0
+      const t = computeT()
+      if (Math.abs(t - lastT) > 0.001) {
+        lastT = t
+        root.style.setProperty('--t', String(t))
+        window.__helixIncWrite && window.__helixIncWrite()
+      }
+    }
+
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(writeT) }
+    const onResize = () => { if (!frame) frame = requestAnimationFrame(writeT) }
+
+    // initialize with t=0 so CSS calc() gets a numeric value immediately
+    root.style.setProperty('--t', '0')
+    writeT()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onResize, { passive: true })
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  // Guarantee tilt var is set at boot (and whenever effect value changes)
+  useEffect(() => {
+    const tilt = SAFE_MODE ? SAFE.TRACK_TILT_DEG : (effects.trackTiltDeg ?? -10)
+    const turns = SAFE_MODE ? SAFE.SCENE_TURNS_DEG : -720
+    const root = document.documentElement
+    root.style.setProperty('--track-tilt-deg', `${tilt}deg`)   // <- with units
+    root.style.setProperty('--sceneTurns', `${turns}deg`)       // <- with units
+  }, [effects.trackTiltDeg])
+
+  // DEV: keyboard stepper for yaw (left/right change --t by ±0.02) — helps when scroll feels glitchy
+  useEffect(() => {
+    const root = document.documentElement
+    const onKey = (e) => {
+      if (!e || e.repeat) return
+      const cur = parseFloat(getComputedStyle(root).getPropertyValue('--t')) || 0
+      if (e.key === 'ArrowRight') root.style.setProperty('--t', String(Math.min(cur + 0.02, 1)))
+      if (e.key === 'ArrowLeft')  root.style.setProperty('--t', String(Math.max(cur - 0.02, 0)))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // Update CSS sizing variables and section height - MUST be before any conditional returns
   useEffect(() => {
-    document.documentElement.style.setProperty('--tile-w', `${effects.tileW}px`);
-    document.documentElement.style.setProperty('--tile-h', `${effects.tileH}px`);
-    document.documentElement.style.setProperty('--section-svh', `${effects.sectionSVH}svh`);
+    const root = document.documentElement;
+    const next = {
+      '--tile-w': `${effects.tileW}px`,
+      '--tile-h': `${effects.tileH}px`,
+      '--section-svh': `${effects.sectionSVH}svh`,
+    };
+    // Only write changed values, and batch in one rAF
+    let frame = requestAnimationFrame(() => {
+      for (const [k, v] of Object.entries(next)) {
+        const cur = getComputedStyle(root).getPropertyValue(k).trim();
+        if (cur !== v) {
+          root.style.setProperty(k, v);
+          window.__helixIncWrite && window.__helixIncWrite();
+        }
+      }
+    });
+    return () => { if (frame) cancelAnimationFrame(frame); };
   }, [effects.tileW, effects.tileH, effects.sectionSVH]);
+
+  // SAFE_MODE: compute bounded target count, then build in small batches
+  useEffect(() => {
+    const radius = effects.radiusPx ?? 250;
+    const baseTilesTurn = SAFE_MODE ? SAFE.BASE_TILES_TURN : (effects.autoSpacing ? suggestTilesPerTurn(radius, effects.tileW, effects.gutterPx, 24) : (effects.tilesPerTurn ?? 16));
+    const visibleTurns = SAFE_MODE ? SAFE.VISIBLE_TURNS : (effects.readabilityMode ? (effects.visibleTurns ?? 2.8) : (window.innerWidth <= 768 ? 1.5 : 2.0));
+    const bufferTurns = SAFE_MODE ? SAFE.BUFFER_TURNS : (effects.readabilityMode ? (effects.bufferTurns ?? 0.7) : 0.5);
+    const repeatTurns = SAFE_MODE ? SAFE.REPEAT_TURNS : (effects.repeatTurns ?? 2.0);
+    const neededPairsCalc = Math.ceil((visibleTurns + bufferTurns + repeatTurns) * baseTilesTurn);
+    const target = SAFE_MODE ? Math.min(neededPairsCalc, SAFE.MAX_PAIRS) : neededPairsCalc;
+
+    setPairCount(0); // reset before re-building
+    let cancelled = false;
+    const enqueue = () => {
+      if (cancelled) return;
+      setPairCount(prev => {
+        const next = Math.min(prev + (SAFE_MODE ? SAFE.BATCH_SIZE : neededPairsCalc), target);
+        if (next < target) {
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(enqueue, { timeout: 50 });
+          } else {
+            setTimeout(enqueue, 0);
+          }
+        }
+        return next;
+      });
+    };
+    enqueue();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effects.radiusPx, effects.tilesPerTurn, effects.autoSpacing, effects.readabilityMode, effects.visibleTurns, effects.bufferTurns, effects.repeatTurns, effects.tileW, effects.gutterPx]);
 
   // Fallback to 2D grid for reduced motion or unsupported browsers
   if (prefersReducedMotion || !enhanced) {
@@ -403,18 +405,30 @@ export const EnhancedHelixProjectsShowcase = ({
     );
   }
 
+  // Apply safe effects profile if SAFE_MODE is on
+  const safeFx = { ...effects };
+  if (SAFE_MODE) {
+    safeFx.constantTileSize = SAFE.CONSTANT_SIZE_ON;
+    safeFx.outwardTurn = !SAFE.OUTWARD_OFF;
+    safeFx.depth = false;              // disable any legacy depth scaling
+    safeFx.rgbEdge = false;            // turn off heavy FX
+    safeFx.depthBlur = false;
+    safeFx.chromatic = false;
+    safeFx.minimalistControls = SAFE.DEV_PANEL_MINIMAL;
+  }
+
   return (
-    <ColorSchemeEffects effects={effects}>
-      <VisualEffects effects={effects}>
-        <CardDesignEffects effects={effects}>
-          <StructureEffects effects={effects}>
+    <ColorSchemeEffects effects={safeFx}>
+      <VisualEffects effects={safeFx}>
+        <CardDesignEffects effects={safeFx}>
+          <StructureEffects effects={safeFx}>
             <NavigationEffects 
-              effects={effects} 
+              effects={safeFx} 
               currentProject={currentProject}
               totalProjects={projects.length}
               onProjectSelect={handleProjectClick}
             >
-              <TypographyEffects effects={effects}>
+              <TypographyEffects effects={safeFx}>
                 <section className="projects-showcase relative" data-enhanced={enhanced}>
                   {/* Skip link for accessibility */}
                   <a 
@@ -431,25 +445,24 @@ export const EnhancedHelixProjectsShowcase = ({
                     onResume={handleResume}
                     onEmergencyStop={handleEmergencyStop}
                     onSkipIntro={handleSkipIntro}
+                    onDevReadout={handleDevReadout}
                     effects={effects}
                   />
 
-                  {/* 3D Helix Scene */}
-                  <div className="helix-scene relative h-screen overflow-hidden flex items-center justify-center">
-                    <div 
-                      className="helix-assembly"
-                      ref={helixRef}
-                      style={{
-                        transformStyle: 'preserve-3d',
-                        perspective: '1200px',
-                        // Combine rotation and vertical translation for scroll effect
-                        transform: `
-                          rotateX(calc(var(--track-tilt-deg, -10) * 1deg))
-                          rotateY(${scrollOffset * (360 / projects.length)}deg)
-                          translateY(${-scrollOffset * 20}px)
-                        `,
-                        // Pass scene rotation as CSS variable for billboard mode
-                        '--sceneDeg': `${scrollOffset * (360 / projects.length)}deg`,
+                  {/* 3D Helix Scene - Encapsulated */}
+                  <section className="helix-stage">
+                    <div className="helix-pin">
+                      <div className="helix-camera">
+                        <div className="helix-world">
+                          <div className="helix-scene relative h-screen overflow-hidden flex items-center justify-center">
+                            <div 
+                              className="helix-assembly"
+                              ref={helixRef}
+                              style={{
+                                transformStyle: 'preserve-3d',
+                                // Remove perspective and rotateX - now handled by parent layers
+                                // No global Y push - vertical climb comes only from each pair's yOffset
+                                transform: 'none',
                         transition: effects.smoothRotation 
                           ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' 
                           : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -460,29 +473,30 @@ export const EnhancedHelixProjectsShowcase = ({
                     >
                       {(() => {
                         // Double-helix calculation
-                        const radius = effects.radiusPx ?? 250;
-                        const pitchPerTurn = effects.pitchPerTurnPx ?? 800;
-                        const baseTilesPerTurn = effects.autoSpacing
-                          ? suggestTilesPerTurn(radius, effects.tileW, effects.gutterPx, 24)
-                          : (effects.tilesPerTurn ?? 16);
+                        const radius = safeFx.radiusPx ?? 250;
+                        const pitchPerTurn = safeFx.pitchPerTurnPx ?? 800;
+                        const baseTilesPerTurn = SAFE_MODE ? SAFE.BASE_TILES_TURN : (safeFx.autoSpacing
+                          ? suggestTilesPerTurn(radius, safeFx.tileW, safeFx.gutterPx, 24)
+                          : (safeFx.tilesPerTurn ?? 16));
 
                         const deltaDeg = 360 / baseTilesPerTurn;
                         
-                        // Readability mode overrides
-                        const visibleTurns = effects.readabilityMode 
-                          ? (effects.visibleTurns ?? 2.8) 
-                          : (window.innerWidth <= 768 ? 1.5 : 2.0);
-                        const bufferTurns = effects.readabilityMode 
-                          ? (effects.bufferTurns ?? 0.7) 
-                          : 0.5;
-                        const repeatTurns = effects.readabilityMode 
-                          ? (effects.repeatTurns ?? 3.0) 
-                          : (effects.repeatTurns ?? 2.0);
+                        // Readability mode overrides with SAFE_MODE checks
+                        const visibleTurns = SAFE_MODE ? SAFE.VISIBLE_TURNS : (safeFx.readabilityMode 
+                          ? (safeFx.visibleTurns ?? 2.8) 
+                          : (window.innerWidth <= 768 ? 1.5 : 2.0));
+                        const bufferTurns = SAFE_MODE ? SAFE.BUFFER_TURNS : (safeFx.readabilityMode 
+                          ? (safeFx.bufferTurns ?? 0.7) 
+                          : 0.5);
+                        const repeatTurns = SAFE_MODE ? SAFE.REPEAT_TURNS : (safeFx.readabilityMode 
+                          ? (safeFx.repeatTurns ?? 3.0) 
+                          : (safeFx.repeatTurns ?? 2.0));
                         const neededPairs = Math.ceil((visibleTurns + bufferTurns + repeatTurns) * baseTilesPerTurn);
+                        const cappedPairs = SAFE_MODE ? Math.min(neededPairs, SAFE.MAX_PAIRS) : neededPairs;
 
                         const sceneDeg = scrollOffset * (360 / projects.length);
 
-                        return Array.from({ length: neededPairs }, (_, i) => {
+                        return Array.from({ length: Math.min(pairCount, cappedPairs) }, (_, i) => {
                           const thetaDeg = i * deltaDeg;
                           const yOffset = (pitchPerTurn / 360) * thetaDeg;
                           const projectIndex = i % projects.length;
@@ -491,54 +505,51 @@ export const EnhancedHelixProjectsShowcase = ({
                           // Lab variables for this tile
                           const nodeVars = getLabVars(thetaDeg, sceneDeg, project, window);
 
-                          // Tile's z relative to camera for rotateY(theta) translateZ(radius)
-                          const rad = (thetaDeg + sceneDeg) * Math.PI / 180;
-                          const z = radius * Math.cos(rad);
-
-                          // Compensation factor: cancel perspective scale ≈ (1 - z/persp)
-                          // blend with compStrength so it's not jarring
-                          const p = 1200; // must match assembly perspective
-                          const s = effects.compStrength ?? 0.85;
-                          const sizeComp = 1 - s * (z / p);
-
-                          // Add to CSS vars (keep existing vars too)
+                          // Pass through node vars without size compensation
+                          // (constant-size CSS already uses exact inverse projection with --zCamPx/--perspPx)
                           const enhancedNodeVars = {
                             ...(nodeVars || {}),
-                            '--size-comp': Number.isFinite(sizeComp) ? sizeComp.toFixed(3) : '1',
                           };
 
+                          // Placeholder label for Safe Mode
+                          const label = `P${(i + 1).toString().padStart(2, '0')}`;
+
                           // Info card content
-                          const infoNode = (
-                            <div className="media-3d flex flex-col justify-between p-2 text-white">
-                              <div className="text-xs opacity-80">{project?.title || 'Project'}</div>
-                              <div className="text-[10px] opacity-60">Click to view details</div>
-                            </div>
-                          );
+                          const infoNode = SAFE_MODE
+                            ? <div className="media-3d flex items-center justify-center text-white text-[10px] opacity-80">{label} Info Card</div>
+                            : (
+                              <div className="media-3d flex flex-col justify-between p-2 text-white">
+                                <div className="text-xs opacity-80">{project?.title || 'Project'}</div>
+                                <div className="text-[10px] opacity-60">Click to view details</div>
+                              </div>
+                            );
 
                           // Media node (existing BowedCard logic)
-                          const mediaNode = (
-                            <div className="media-3d">
-                              <div 
-                                className="tile-media-wrapper"
-                                style={{
-                                  background: project?.thumbnail ? `url(${project.thumbnail})` : 'rgba(255,255,255,0.1)',
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                  width: '100%',
-                                  height: '100%',
-                                  borderRadius: '8px'
-                                }}
-                              >
-                                {project?.type === 'video' && (
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                                      <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-1"></div>
+                          const mediaNode = SAFE_MODE
+                            ? <div className="media-3d flex items-center justify-center text-white text-xs">{label} Media</div>
+                            : (
+                              <div className="media-3d">
+                                <div 
+                                  className="tile-media-wrapper"
+                                  style={{
+                                    background: project?.thumbnail ? `url(${project.thumbnail})` : 'rgba(255,255,255,0.1)',
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    width: '100%',
+                                    height: '100%',
+                                    borderRadius: '8px'
+                                  }}
+                                >
+                                  {project?.type === 'video' && (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                                        <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-1"></div>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          );
+                            );
 
                           return (
                             <HelixPairGroup
@@ -547,6 +558,7 @@ export const EnhancedHelixProjectsShowcase = ({
                               yOffset={yOffset}
                               radius={radius}
                               sceneYaw={sceneDeg}
+                              trackTilt={SAFE_MODE ? SAFE.TRACK_TILT_DEG : (safeFx.trackTiltDeg ?? -10)}
                               media={mediaNode}
                               info={infoNode}
                               nodeVars={enhancedNodeVars}
@@ -558,30 +570,33 @@ export const EnhancedHelixProjectsShowcase = ({
                       })()}
                       
                       {/* Center Logo (when enabled, replaces wireframe) */}
-                      {effects.centerLogo && (
+                      {safeFx.centerLogo && (
                         <img
                           src="/Ravielogo1.png"
                           alt="Ravie logo"
-                          className={`center-logo no-select ${effects.centerLogoMode || 'billboard'}`}
+                          className={`center-logo no-select ${safeFx.centerLogoMode || 'billboard'}`}
                           aria-hidden="true"
                         />
                       )}
                     </div>
-
-                    {/* Navigation instructions */}
-                    <div className="navigation-instructions absolute top-8 left-8 text-white text-sm">
-                      <div className="bg-gray-900/80 rounded-lg p-4 backdrop-blur-sm">
-                        <h3 className="font-semibold mb-2">Navigation</h3>
-                        <ul className="space-y-1 text-xs">
-                          <li>← → Arrow keys to navigate</li>
-                          <li>Mouse wheel / trackpad to scroll</li>
-                          <li>Click projects to select</li>
-                          <li>Esc to exit 3D view</li>
-                          <li>Infinite scroll - cards repeat endlessly</li>
-                        </ul>
-                      </div>
-                    </div>
                   </div>
+                </div>
+                {/* Navigation instructions - moved outside helix-world so it doesn't rotate */}
+                <div className="navigation-instructions fixed top-8 left-8 text-white text-sm">
+                  <div className="bg-gray-900/80 rounded-lg p-4 backdrop-blur-sm">
+                    <h3 className="font-semibold mb-2">Navigation</h3>
+                    <ul className="space-y-1 text-xs">
+                      <li>← → Arrow keys to navigate</li>
+                      <li>Page scroll to rotate helix</li>
+                      <li>Click projects to select</li>
+                      <li>Esc to exit 3D view</li>
+                      <li>Infinite scroll - cards repeat endlessly</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
 
                   {/* Accessible fallback (hidden but present for screen readers) */}
                   <div id="projects-list" className="sr-only">
@@ -598,3 +613,4 @@ export const EnhancedHelixProjectsShowcase = ({
   );
 };
 
+export default EnhancedHelixProjectsShowcase;

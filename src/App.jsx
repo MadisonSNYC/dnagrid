@@ -3,6 +3,7 @@ import { DevPanel } from './components/DevPanel.jsx';
 import { EnhancedHelixProjectsShowcase } from './components/EnhancedHelixProjectsShowcase.jsx';
 import { useEffects } from './hooks/useEffects.js';
 import './App.css';
+import './helix/helix-stage.css';
 
 function App() {
   const { effects, toggleEffect, resetEffects, setPlacementStrength, setRepeatTurns } = useEffects();
